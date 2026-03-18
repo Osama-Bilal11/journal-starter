@@ -1,34 +1,52 @@
+from datetime import UTC, datetime
+import json
+import os
+from openai import OpenAI
+from api.services.entry_service import EntryService
 
-# TODO: Import your chosen LLM SDK
-# from openai import OpenAI
-# import anthropic
-# import boto3
-# from google.cloud import aiplatform
+token = os.getenv("OPENAI_API_KEY")
+endpoint = os.getenv("OPENAI_BASE_URL")
+model = os.getenv("OPENAI_MODEL")
+
+
+client = OpenAI(
+    base_url=endpoint,
+    api_key=token,
+)
 
 
 async def analyze_journal_entry(entry_id: str, entry_text: str) -> dict:
-    """
-    Analyze a journal entry using your chosen LLM API.
 
-    Args:
-        entry_id: The ID of the journal entry being analyzed
-        entry_text: The combined text of the journal entry (work + struggle + intention)
+    response = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "should return sentiment, a 2-sentence summary, and 2-4 key topics. "
+                    "return using the following json format: "
+                    "{"
+                    '"sentiment": "sentiment of the journal entry (positive, negative, neutral)", '
+                    '"summary": "2-sentence summary of the journal entry", '
+                    '"topics": ["2-4 key topics from the journal entry"], '
+                    "}"
+                )
+            },
+            {
+                "role": "user",
+                "content": entry_text
+            }
+        ],
 
-    Returns:
-        dict with keys:
-            - entry_id: ID of the analyzed entry
-            - sentiment: "positive" | "negative" | "neutral"
-            - summary: 2 sentence summary of the entry
-            - topics: list of 2-4 key topics mentioned
-            - created_at: timestamp when the analysis was created
-
-    TODO: Implement this function using your chosen LLM provider.
-    See the Learn to Cloud curriculum for guidance on:
-    - Setting up your LLM API client
-    - Crafting effective prompts
-    - Handling structured JSON output
-    """
-    raise NotImplementedError(
-        "Implement this function using your chosen LLM API. "
-        "See the Learn to Cloud curriculum for guidance."
+        model=model
     )
+    entry_data = json.loads(response.choices[0].message.content)
+    now = datetime.now(UTC)
+
+    analysis = {
+        "entry_id": entry_id,
+        **entry_data,
+        "created_at": now.isoformat(),
+    }
+
+    print(analysis)
+    return analysis
